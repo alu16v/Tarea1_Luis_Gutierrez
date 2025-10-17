@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -31,7 +34,9 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import modelo.Artista;
 import modelo.Coordinacion;
+import modelo.Credenciales;
 import modelo.Especialidad;
 import modelo.Perfil;
 import modelo.Persona;
@@ -132,14 +137,15 @@ public class Main {
 		for (Map.Entry<String, List<String>> lineaCred : mapaCreds.entrySet()) {
 			String usuario = lineaCred.getKey();
 			String pass = lineaCred.getValue().get(2);
+			int posicionProfesion = lineaCred.getValue().size()-1;
 			
-			if(username.equals(usuario)&& userpass.equals(pass)) {
-				// getLast() me falla en el equipo de clase, puede ser la versión de java()
-				// si no, hacer un get(mapaCreds.size()-1)
-				if(lineaCred.getValue().get(mapaCreds.size()-1).toLowerCase().equals("coordinacion")) {
+			if(username.equals(usuario) && userpass.equals(pass)) {
+				if(lineaCred.getValue().get(posicionProfesion).toLowerCase().equals("coordinacion")) {
 					resultadoLogin = new Sesion("iniciada", Perfil.Coordinacion);
-				}else if(lineaCred.getValue().get(mapaCreds.size()-1).toLowerCase().equals("artista")) {
+					break;
+				}else if(lineaCred.getValue().get(posicionProfesion).toLowerCase().equals("artista")) {
 					resultadoLogin = new Sesion("iniciada", Perfil.Artista);
+					break;
 				}
 			}
 		}
@@ -293,7 +299,7 @@ public class Main {
 				opcion=in.nextInt();
 				switch(opcion) {
 					case 1:
-						System.out.println("En desarrollo...");
+						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
 						break;
 					case 2:
 						System.out.println("Cerrando sesión...");
@@ -323,8 +329,8 @@ public class Main {
 			try {
 				System.out.println("\n\n===== MENÚ DE ADMINISTRACIÓN ====");
 				System.out.println("1. Registrar persona");
-				System.out.println("2. Gestionar Artista");
-				System.out.println("3. Gestionar Coordinador");
+				System.out.println("2. Gestionar Artista - en desarrollo");
+				System.out.println("3. Gestionar Coordinador - en desarrollo");
 				System.out.println("4. Cerrar sesión");
 				opcion=in.nextInt();
 				switch(opcion) {
@@ -332,10 +338,10 @@ public class Main {
 						registrarPersona();
 						break;
 					case 2: 
-						// gestionarArtista();
+						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
 						break;
 					case 3:
-						//gestionarCoord();
+						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
 						break;
 					case 4:
 						System.out.println("Cerrando sesión...");
@@ -353,20 +359,89 @@ public class Main {
 			
 		}while(!salir);
 	}
-	
+	/**
+	 * Método escogerEspecialidades. Genera una lista de especialidades y pide al usuario que introduzca un número
+	 * para escoger una especialidad. Puede escoger tantas como quiera hasta que introduzca la opción de salir, 
+	 * pero al guardar y retornar los valores en un Set, no permite duplicados. No obstante, avisa al usuario
+	 * que su selección ya ha sido guardada.
+	 * @return Set<Especialidad>
+	 */
 	public static Set<Especialidad> escogerEspecialidades() {
+		Scanner in = new Scanner(System.in);
 		Set<Especialidad> especialidades = new HashSet<Especialidad>();
-		int cont=1;
-		System.out.println("Seleccione las especialidades del artista \n(múltiple opción, uno a uno)");
-		for (Especialidad especialidad : especialidades) {
-			System.out.println(cont+": "+especialidad.toString());
-			cont++;
-		}
-		// tengo que hacer el menú para que me diga las especialidades
+		Especialidad[] valores = Especialidad.values();
+		int cont=1, seleccion=0;
+		boolean salir=false;
+		
+		do {
+			System.out.println("Seleccione las especialidades del artista \n(múltiple opción, uno a uno)");
+			for (Especialidad especialidad : valores) {
+				System.out.println(cont+": "+especialidad.toString());
+				cont++;
+			}
+			System.out.println("6. Salir");
+			seleccion = in.nextInt();
+			if(seleccion>0 && seleccion<6) {
+				if(!especialidades.contains(valores[seleccion-1]))
+					especialidades.add(valores[seleccion-1]);
+				else 
+					System.out.println("Valor ya introducido");
+			}else if(seleccion==6) {
+				salir=true;
+			}else {
+				System.out.println("Opción incorrecta");
+			}
+			System.out.println("Selección: "+especialidades.toString());
+			cont=1;				
+		}while(!salir);
+		
 		return especialidades;
 	}
 	
-	
+	public static String[] escogerCredenciales(HashMap<String, List<String>> usuariosActuales) {
+		Scanner in = new Scanner(System.in);
+		String[] creds ={"",""};
+		String usuario, contrasenia;
+		boolean usuarioValido=false,contraValida=false;
+		
+		// bucle de nombre de usuario, comprueba unicidad y espacios en blanco
+		do {
+			System.out.println("Introduzca el nombre de usuario:");
+			usuario = in.nextLine();
+			if(!usuariosActuales.containsKey(usuario)) {
+				// comprueba espacios en blanco			
+				if(usuario.length()>2) {
+					if(!BuclesGenericos.contieneEspacios(usuario) && !BuclesGenericos.contieneEspeciales(usuario)) {
+						creds[0]=usuario.toLowerCase();
+						usuarioValido = true;
+					}else {
+						System.out.println("El nombre de usuario no puede contener espacios "
+											+ "en blanco o caracteres no alfanuméricos");
+					}	
+				}else {
+					System.out.println("La longitud del campo debe ser superior a dos caracteres");
+				}
+			}else {
+				System.out.println("Nombre de usuario no disponible");
+			}
+		}while(!usuarioValido);
+		
+		// bucle de contraseña, la pide dos veces para comprobar que sea la deseada
+		
+		do{
+			System.out.println("Introduzca la contraseña");
+			contrasenia = in.nextLine();
+			System.out.println("Confirme la contraseña:");
+			String contraDup = in.nextLine();
+			if(contrasenia.equals(contraDup)) {
+				creds[1]=contrasenia;
+				contraValida=true;
+			}else
+				System.out.println("Las contraseñas no coinciden");
+			
+		}while(!contraValida);
+		return creds;
+	}
 	
 	
 	// pregunta todos los datos y los graba al fichero credenciales
@@ -387,12 +462,17 @@ public class Main {
 			Scanner in = new Scanner(System.in);
 			HashMap<String, List<String>> usuariosActuales = leerCredenciales();
 			HashMap<String, String> paises = leerNacionalidades();
-			int idUltimoUsuario = usuariosActuales.size(), opcionProfesion;
+			Long idUltimoUsuario = Long.valueOf(usuariosActuales.size());
+			int opcionProfesion;
 			String user, pass, email, nombreCompleto,codNacionalidad ,nacionalidad = "";
 			Perfil perfil;
-			boolean emailEsUnico=false,usuarioEsUnico=false,nacionalidadEscogida=false, profesionEscogida=false;
+			LocalDate fechaSenior=null;
+			boolean emailEsUnico=false,nacionalidadEscogida=false, profesionEscogida=false, 
+					seniorEscogido=false, esCoord=false;
 			
 			System.out.println("Formulario de creación de usuario");
+			
+			// pregunta al usuario por sus datos no específicos, como nombre, email...
 			System.out.println("--- Datos personales ---");
 			System.out.println("Introduzca el nombre completo");
 			nombreCompleto = in.nextLine();
@@ -433,6 +513,8 @@ public class Main {
 			}while(!nacionalidadEscogida);
 			System.out.println("Nacionalidad escogida: "+nacionalidad);
 			
+			// pregunta al usuario por sus datos específicos a su profesión en el circo
+			
 			System.out.println("--- Datos profesionales ---");
 			do {
 				System.out.println("¿El usuario pertenece a Coordinación o es un Artista?");
@@ -442,11 +524,12 @@ public class Main {
 				
 				switch(opcionProfesion) {
 					case 1:
-						boolean seniorEscogido = BuclesGenericos.bucleSiNo("¿Es un miembro senior?");
+						seniorEscogido = BuclesGenericos.bucleSiNo("¿Es un miembro senior?");
 						if(seniorEscogido) {
-							LocalDate fechaSenior = Utilidades.leerFecha();
+							fechaSenior = Utilidades.leerFecha();
 						}
 						profesionEscogida=true;
+						esCoord=true;
 					break;
 					case 2: 
 						boolean tieneApodo= BuclesGenericos.bucleSiNo("¿El artista tiene apodo?");
@@ -456,9 +539,7 @@ public class Main {
 							String apodoArtista = in.next();
 						}						
 						System.out.println("Indique las especializaciones del artista (opción múltiple, una a una)");
-						// hacer switch en un metodo aparte que devuelva un Set<Especialidad>, ya que no permite duplicados
-						escogerEspecialidades();
-						
+						Set<Especialidad> especialidades = escogerEspecialidades();
 						profesionEscogida=true;
 						break;
 					default:
@@ -466,21 +547,43 @@ public class Main {
 						break;
 				}
 			}while(!profesionEscogida);
-//			StringBuilder sb = new StringBuilder();
-//			sb.append(idUltimoUsuario+1).append("|"); // id numérica, siempre una unidad mayor que el último creado
-//			sb.append(user).append("|"); // nombre de usuario
-//			sb.append(pass).append("|"); // contraseña de usuario
-//			sb.append(email).append("|"); // email único
-//			sb.append(nombreCompleto).append("|"); // nombre completo
-//			sb.append(nacionalidad).append("|"); // nacionalidad
-//			sb.append(perfil); // coordinación/artista
-//			String usuario = sb.toString();
-//			System.out.println(sb.toString());
-//			bw.newLine();
-//			
-//			bw.write(usuario);
-//
-//			System.out.println("Usuario creado con éxito");
+			
+			// pregunta al usuario por sus datos de inicio de sesión, con sus correspondientes checks
+			System.out.println("--- Credenciales ---");
+			String[] credenciales = escogerCredenciales(usuariosActuales);
+			
+			
+			// escritura de variables específicas a profesión 
+			user = credenciales[0];
+			pass = credenciales[1];
+			if(esCoord) {
+				perfil = Perfil.Coordinacion;
+				Credenciales credsCoord = new Credenciales(idUltimoUsuario, user, pass, perfil);
+				Coordinacion nuevoCoord = new Coordinacion(idUltimoUsuario, email,nombreCompleto, 
+														nacionalidad,credsCoord,seniorEscogido, fechaSenior);
+			}else {
+				perfil = Perfil.Artista;
+				Credenciales credsArtista = new Credenciales(idUltimoUsuario, user, pass, perfil);
+				Artista nuevoArtista = new Artista(idUltimoUsuario, email, nombreCompleto,
+													nacionalidad,credsArtista);
+			} // estas instancias de Persona todavía no se usan en esta versión
+			
+			StringBuilder sb = new StringBuilder();
+			sb.append(idUltimoUsuario+1).append("|"); // id numérica, siempre una unidad mayor que el último creado
+			sb.append(user).append("|"); // nombre de usuario
+			sb.append(pass).append("|"); // contraseña de usuario
+			sb.append(email).append("|"); // email único
+			sb.append(nombreCompleto).append("|"); // nombre completo
+			sb.append(nacionalidad).append("|"); // nacionalidad
+			sb.append(perfil); // coordinación/artista
+			
+			String usuarioFinal = sb.toString();
+			System.out.println(sb.toString());
+			
+			bw.newLine();
+			bw.write(usuarioFinal);
+
+			System.out.println("Usuario creado con éxito");
 			
 		} catch (IOException e) {
 			System.out.println("Error de escritura");
@@ -528,6 +631,8 @@ public class Main {
 					case 3: 
 						salirPrograma = confirmarSalida();
 						break;
+					case 4: escogerCredenciales(leerCredenciales());
+					break;
 					default:
 						System.out.println("Opción incorrecta.");
 						break;						

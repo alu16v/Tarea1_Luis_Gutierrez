@@ -32,7 +32,13 @@ public class Coordinacion extends Persona {
 	}
 
 	public LocalDate getFechasenior() {
-		return fechasenior;
+		if(fechasenior!=null) {
+			return fechasenior;
+		}else {
+			// devuelve la menor fecha posible para mostrar que no está registrada
+			// y que no arroje una NullPointerException
+			return LocalDate.ofEpochDay(0);
+		}
 	}
 
 	public void setFechasenior(LocalDate fechasenior) {

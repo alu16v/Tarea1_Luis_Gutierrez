@@ -1,3 +1,4 @@
-1|luis|luis|luisgb11@micirco.es|Luis Gutierrez|España|coordinacion
-2|gloken|abb4d0nSuck5!|garviel@lunarwolves.ioh|Garviel Loken|Alemania|artista
+1|luis|luis|luisgb11@micirco.es|Luis Gutierrez|España|Coordinacion
+2|gloken|abb4d0nSuck5!|garviel@lunarwolves.ioh|Garviel Loken|Alemania|Artista
 3|ejemplo|contrejemplo|ejempleoz@gmail.com|Ejempl Ejemplez|Ejemplia|Coordinacion
+4|eufrasio|3ufr4s!o|eufrasio@circo.es|Eufrasio Lentejuelo|España|Coordinacion
