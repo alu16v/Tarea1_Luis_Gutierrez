@@ -2,23 +2,34 @@ package principal;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.InputMismatchException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
@@ -38,10 +49,12 @@ import modelo.Artista;
 import modelo.Coordinacion;
 import modelo.Credenciales;
 import modelo.Especialidad;
+import modelo.Espectaculo;
 import modelo.Perfil;
 import modelo.Persona;
 import modelo.Sesion;
 import utils.BuclesGenericos;
+import utils.OosSobreescribible;
 import utils.Utilidades;
 
 /**
@@ -76,7 +89,7 @@ public class Main {
 				String contra = in.next();
 				
 				if(usuario.equals(usuarioAdmin)&& contra.equals(passAdmin)) { 
-					resultado = new Sesion("iniciada como admin", Perfil.Admin);
+					resultado = new Sesion("admin", Perfil.Admin);
 					System.out.println("Sesión iniciada como: "+resultado.getPerfil().toString());
 					inicio = true;
 				}else {
@@ -141,10 +154,10 @@ public class Main {
 			
 			if(username.equals(usuario) && userpass.equals(pass)) {
 				if(lineaCred.getValue().get(posicionProfesion).toLowerCase().equals("coordinacion")) {
-					resultadoLogin = new Sesion("iniciada", Perfil.Coordinacion);
+					resultadoLogin = new Sesion(usuario, Perfil.Coordinacion);
 					break;
 				}else if(lineaCred.getValue().get(posicionProfesion).toLowerCase().equals("artista")) {
-					resultadoLogin = new Sesion("iniciada", Perfil.Artista);
+					resultadoLogin = new Sesion(usuario, Perfil.Artista);
 					break;
 				}
 			}
@@ -152,7 +165,11 @@ public class Main {
 		return resultadoLogin;
 	}
 	
-	
+	/**
+	 * Lee el fichero paises.xml 
+	 * @return Map<String, String> en el que la clave es el código de país 
+	 * 		   y el valor es el país al que pertenece
+	 */
 	public static HashMap<String, String> leerNacionalidades() {
 		Properties props = new Properties();
 		String raiz = Thread.currentThread().getContextClassLoader().
@@ -206,77 +223,47 @@ public class Main {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
-		
-		
+		}		
 		return nacionalidades;
 	}
-	
-	
-	
-	
 	
 	// prompt para confirmar con si/no la salida y volver al menú principal en caso negativo
 	public static boolean confirmarSalida() {
 		try (Scanner in = new Scanner(System.in)) {
-			String salida;
-			boolean salir=false;
-			boolean check = false;
-			do {
-				System.out.println("¿Está seguro de que desea salir? (Si/No)");
-				salida = in.next().trim().toLowerCase();
-				if(salida.equals("s") || salida.equals("si")) {
-					check = true;
-					System.out.println("Gracias por usar nuestro programa. Hasta luego!");
-					salir= true;
-				}else if(salida.equals("n") || salida.equals("no")){
-					System.out.println("Volviendo al menú principal...");
-					check = true;
-				}
-			}while(!check);
+			String salida = "Está seguro de que desea salir del programa?";
+			boolean salir=BuclesGenericos.bucleSiNo(salida);
 			return salir;
 		}
 	}
 	
 	
-	
-	
-	
-	/* esto es terriblemente ineficiente pero todavía no he pensado en una mejor forma
-	   de hacer diferentes opciones en el mismo menú y switch
-	*/
-	public static void menuCoord() {
+	public static void menuCoord(Sesion sesionActual) {
 		Scanner in = new Scanner(System.in);
 		int opcion=0;
 		boolean salir=false;
 		do {
 			try {
 				System.out.println("\n\n===== MENÚ DE COORDINACIÓN ====");
-				System.out.println("1. Gestionar espectáculo");
-				System.out.println("2. Asignar artista");
-				System.out.println("3. Crear número");
-				System.out.println("4. Modificar número");
-				System.out.println("5. Crear espectáculo");
-				System.out.println("6. Modificar espectáculo");
-				System.out.println("7. Cerrar sesión");
+				System.out.println("Bienvenido, "+sesionActual.getEstadoLogin());
+				System.out.println("1. Crear espectáculo");
+//				System.out.println("2. Asignar artista");
+//				System.out.println("3. Crear número ");
+//				System.out.println("4. Modificar número");
+//				System.out.println("5. Crear espectáculo");
+//				System.out.println("6. Modificar espectáculo");
+				System.out.println("2. Cerrar sesión");
 				opcion=in.nextInt();
 				switch(opcion) {
 					case 1:
-					case 2:
-					case 3:
-					case 4:
-					case 5:
-					case 6:
-						System.out.println("En desarrollo...");
+						crearEspectaculo(false, sesionActual);
 						break;
-					case 7:
+					case 2:
 						System.out.println("Cerrando sesión...");
 						salir = true;
 						break;
 					default: 
 						System.out.println("Opción no válida");
-						break;
-							
+						break;	
 				}
 			
 			}catch(InputMismatchException input) {
@@ -287,13 +274,14 @@ public class Main {
 		}while(!salir);
 	}
 	
-	public static void menuArtista() {
+	public static void menuArtista(Sesion sesionActual) {
 		Scanner in = new Scanner(System.in);
 		int opcion=0;
 		boolean salir=false;
 		do {
 			try {
-				System.out.println("\n\n===== MENÚ DE COORDINACIÓN ====");
+				System.out.println("\n\n===== MENÚ DE ARTISTA ====");
+				System.out.println("Bienvenido, "+sesionActual.getEstadoLogin());
 				System.out.println("1. Ver ficha de datos");
 				System.out.println("2. Cerrar sesión");
 				opcion=in.nextInt();
@@ -320,7 +308,7 @@ public class Main {
 	}
 	
 	
-	public static void menuAdmin() {
+	public static void menuAdmin(Sesion sesionActual) {
 		
 		Scanner in = new Scanner(System.in);
 		int opcion=0;
@@ -328,22 +316,25 @@ public class Main {
 		do {
 			try {
 				System.out.println("\n\n===== MENÚ DE ADMINISTRACIÓN ====");
+				System.out.println("Bienvenido, "+sesionActual.getEstadoLogin());
 				System.out.println("1. Registrar persona");
-				System.out.println("2. Gestionar Artista - en desarrollo");
-				System.out.println("3. Gestionar Coordinador - en desarrollo");
-				System.out.println("4. Cerrar sesión");
+				System.out.println("2. Añadir espectáculo");
+				System.out.println("3. Gestionar Artista - en desarrollo");
+				System.out.println("4. Gestionar Coordinador - en desarrollo");
+				System.out.println("5. Cerrar sesión");
 				opcion=in.nextInt();
 				switch(opcion) {
 					case 1: 
 						registrarPersona();
 						break;
-					case 2: 
-						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
+					case 2:
+						crearEspectaculo(true, sesionActual);
 						break;
-					case 3:
-						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
-						break;
+					case 3: 
 					case 4:
+						System.out.println("Funcionalidad en desarrollo. Vuelva más tarde");
+						break;
+					case 5:
 						System.out.println("Cerrando sesión...");
 						salir = true;
 						break;
@@ -448,7 +439,7 @@ public class Main {
 	public static void registrarPersona() {
 		
 		String raiz = Thread.currentThread().getContextClassLoader().
-				getResource("").getPath()+"application.properties";
+					  getResource("").getPath()+"application.properties";
 		Properties props = new Properties();
 		try {
 			props.load(new FileInputStream(raiz));
@@ -582,18 +573,238 @@ public class Main {
 			
 			bw.newLine();
 			bw.write(usuarioFinal);
-
+			
 			System.out.println("Usuario creado con éxito");
 			
 		} catch (IOException e) {
 			System.out.println("Error de escritura");
 			e.printStackTrace();
 		}
+	}
+	
+	public static Long elegirCoordinadorEspectaculo(HashMap<String, List<String>> mapaCreds) {
+		Scanner in = new Scanner(System.in);
+		Long idCoord = null;
+		List<String> candidatos = new ArrayList<>();
+		String eleccion;
+		boolean coordElegido=false;
+		do {
+			System.out.println("Coordinadores disponibles:");
+			for (Map.Entry<String, List<String>> entry : mapaCreds.entrySet()) {
+				String usuario = entry.getKey();
+				List<String> valores = entry.getValue();
+				
+				// si el perfil del usuario es de coordinacion, se añade a una lista a mostrar más tarde
+				if(valores.get(valores.size()-1).toLowerCase().equals("coordinacion")) {
+					candidatos.add(usuario);
+				}
+			}
+			for(int i=0;i<candidatos.size();i++) {
+				System.out.println((i+1)+". "+candidatos.get(i));
+			}
+			
+			System.out.println("Introduzca el nombre de su coordinador");
+			eleccion=in.next();
+			
+			if(mapaCreds.containsKey(eleccion)){
+				idCoord = Long.valueOf(mapaCreds.get(eleccion).get(0));
+				System.out.println("\nCoordinador elegido: "+eleccion+", con id: "+idCoord);
+				coordElegido=true;
+			}else {
+				System.out.println("Valor introducido no válido");
+			}		
+			candidatos.clear();
+		}while(!coordElegido);
 		
+		return idCoord;
 	}
 	
 	
+	/**
+	 * Pregunta al usuario por nombre y fechas del espectáculo, las valida y llama a un método 
+	 * para guardar la instancia de la clase Espectáculo en un fichero binario
+	 * @param esAdmin. booleano, true si el usuario es admin, en cuyo caso se le mostrará una lista
+	 * para escoger un coordinador para el espectáculo
+	 */
+	public static void crearEspectaculo(boolean esAdmin, Sesion sesionActual) {
+		Scanner in = new Scanner(System.in);
+		HashMap<String, List<String>> mapaCreds = leerCredenciales();
+		List<Espectaculo> espectaculosAnteriores = volcarEspectaculos();
+		Long id, idCoord;
+		String nombre;
+		LocalDate fechaIni=null, fechaFin=null;
+		boolean nombreValido=false, fechaValida=false, nombreRepetido;
+		
+		// pedir y validar nombre del espectáculo
+		do {
+			System.out.println("Introduzca el nombre de su espectáculo");
+			nombreRepetido=false;
+			nombre = in.nextLine();
+			for(Espectaculo e: espectaculosAnteriores) {
+				if(e.getNombre().equals(nombre)) {
+					nombreRepetido=true;
+				}
+			}
+			if(nombre.length()>25) {
+				System.out.println("El nombre debe tener menos de 25 caracteres de longitud");
+			}else if(nombreRepetido){
+				System.out.println("El espectáculo ya se encuentra registrado");
+			}else {
+				nombreValido=true;
+			}
+		}while(!nombreValido);
+		
+		// pedir y validar fecha de inicio y de fin
+		do {
+			System.out.println("\nIntroduzca la fecha de inicio del espectáculo");
+			fechaIni=Utilidades.leerFecha();
+			System.out.println("Introduzca la fecha de fin del espectáculo");
+			fechaFin=Utilidades.leerFecha();
+			if(!Utilidades.diferenciaDeFechas(fechaIni, fechaFin)) {
+				System.out.println("El espectáculo no puede estar disponible durante más de un año");
+			}else if(ChronoUnit.DAYS.between(fechaIni, fechaFin)<0){
+				System.out.println("La fecha de fin no puede ser anterior a la fecha de inicio");
+			}
+			else {
+				fechaValida=true;
+			}
+		}while(!fechaValida);
+		
+		// comprueba si lo crea un coordinador, y manda elegir a uno si no lo hay ya
+		
+		if(esAdmin) {
+			idCoord = elegirCoordinadorEspectaculo(mapaCreds);
+		}else {
+			String coordinador = sesionActual.getEstadoLogin();
+			// como la clave del mapa de credenciales es el usuario, coge el usuario de la sesión actual
+			// y obtiene la List<String> del usuario, y obtiene el primer valor (Long id) del usuario
+			idCoord = Long.valueOf(mapaCreds.get(coordinador).get(0));
+		}
+		// id se determina leyendo el fichero espectáculos.dat. Si hay espectáculos, su id será
+		// la del último+1. en caso negativo, se inicializa a 1
+		id = leerIdEspectaculo()+1;
+		Espectaculo nuevo = new Espectaculo(id, nombre, fechaIni, fechaFin, idCoord);
+		
+		escribirEspectaculo(nuevo);
+	}
 	
+	
+	/**
+	 * Guarda un espectáculo pasado como parámetro a un fichero binario de java .dat en la ruta /ficheros
+	 * @param espectaculo. un Espectáculo creado correctamente. Este método no comprueba su validez
+	 */
+	public static void escribirEspectaculo(Espectaculo espectaculo) {
+		String raiz = Thread.currentThread().getContextClassLoader().
+				getResource("").getPath()+"application.properties";
+		Properties props = new Properties();
+		try {
+			props.load(new FileInputStream(raiz));
+		} catch (IOException notFound) {
+			notFound.printStackTrace();
+		}
+		File fichEspectaculos = new File(props.getProperty("ficheroespectaculos"));
+		
+		// si el fichero existe, llama a AppendableObjectOutputStream para evitar la corrupción del archivo
+		// al llamar múltiples veces al mismo OOS
+		
+		// no me funciona, tengo que darle una vuelta
+		/*if(fichEspectaculos.exists()) {
+			try(OosSobreescribible oos = new OosSobreescribible(new FileOutputStream(fichEspectaculos))){
+				oos.writeObject(espectaculo);
+				System.out.println("Espectáculo "+espectaculo.getNombre()+" guardado correctamente");
+			}	catch (IOException e) {
+				System.out.println("Error al escribir: "+e.getLocalizedMessage());
+			}
+			
+		}else{
+			try(ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fichEspectaculos))){
+				oos.writeObject(espectaculo);
+				System.out.println("Espectáculo "+espectaculo.getNombre()+" guardado correctamente");
+			}	catch (IOException e) {
+				System.out.println("Error al escribir: "+e.getLocalizedMessage());
+			}
+		}*/
+		
+		
+		// lo voy a intentar volcando el fichero a una lista y sobreesecribir el archivo cada vez que
+		// añado un espectáculo
+		
+		List<Espectaculo> ficheroAnterior = volcarEspectaculos();
+		
+		try(ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fichEspectaculos))){
+			// escribe otra vez los espectáculos anteriores en el fichero
+			for(Espectaculo e : ficheroAnterior) {
+				oos.writeObject(e);
+			}
+			// finalmente, escribe el espectáculo más reciente
+			oos.writeObject(espectaculo);
+			System.out.println("Espectáculo "+espectaculo.getNombre()+" guardado correctamente");
+		}	catch (IOException e) {
+			System.out.println("Error al escribir: "+e.getLocalizedMessage());
+		}
+		
+	}
+	
+	/**
+	 * lee el fichero binario espectaculos.dat
+	 * @return Si hay espectáculos, devuele la id del último. En caso negativo, devuelve 0
+	 */
+	public static Long leerIdEspectaculo() {
+		List<Espectaculo> espectaculos = volcarEspectaculos();
+		Long ultimoEspectaculo = Long.valueOf(0);
+		for(Espectaculo e : espectaculos) {
+			ultimoEspectaculo = e.getId();
+		}
+		return ultimoEspectaculo;		
+	}
+	
+	
+	public static List<Espectaculo> volcarEspectaculos() {
+		String raiz = Thread.currentThread().getContextClassLoader().
+				getResource("").getPath()+"application.properties";
+		Properties props = new Properties();
+		try {
+			props.load(new FileInputStream(raiz));
+		} catch (IOException notFound) {
+			notFound.printStackTrace();
+		}
+		File fichEspectaculos = new File(props.getProperty("ficheroespectaculos"));
+		List<Espectaculo> espectaculos = new ArrayList<>();
+		try(ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fichEspectaculos))){
+			while(true) {
+				try {
+					Espectaculo actual = (Espectaculo) ois.readObject();
+					espectaculos.add(actual);
+				} catch (EOFException e) {
+					break;
+				}
+			}
+		} catch (FileNotFoundException fnf) {
+			System.out.println("Fichero no encontrado");
+		} catch (IOException io) {
+			System.out.println("Error en la lectura del fichero");
+			System.out.println(io.getLocalizedMessage());
+		} catch(ClassNotFoundException cnf) {
+			System.out.println("Clase no encontrada");
+		}
+		return espectaculos;
+	}
+	
+	
+	public static void leerEspectaculo() {
+		List<Espectaculo> espectaculos = volcarEspectaculos();
+		espectaculos.sort(Comparator.comparing(Espectaculo::getFechaini)
+								    .thenComparing(Espectaculo::getNombre));
+		
+		if(espectaculos.isEmpty()) {
+			System.out.println("Todavía no hay ningún espectáculo. Inténtelo de nuevo más tarde");
+		}else {
+			System.out.println("Espectáculos disponibles:");
+			for(Espectaculo e : espectaculos) {
+				System.out.println(e);
+			}
+		}
+	}
 	
 	public static void main(String[] args) {
 
@@ -613,7 +824,7 @@ public class Main {
 				
 				switch(opcion) {
 					case 1: 
-						System.out.println("Todavía no hay ningún espectáculo. Inténtelo de nuevo más tarde");
+						leerEspectaculo();
 						break;
 					case 2: 
 						sesionActual = inicioSesion();
@@ -621,18 +832,17 @@ public class Main {
 							break;
 						}
 						else if(sesionActual.getPerfil().equals(Perfil.Admin))
-							menuAdmin();
+							menuAdmin(sesionActual);
 						else if(sesionActual.getPerfil().equals(Perfil.Coordinacion))
-							menuCoord();
+							menuCoord(sesionActual);
 						else if(sesionActual.getPerfil().equals(Perfil.Artista))
-							menuArtista();
+							menuArtista(sesionActual);
 						sesionActual = new Sesion("no iniciada",null);
 						break;
 					case 3: 
 						salirPrograma = confirmarSalida();
+						System.out.println("Gracias por usar nuestro programa. Hasta luego!");
 						break;
-					case 4: escogerCredenciales(leerCredenciales());
-					break;
 					default:
 						System.out.println("Opción incorrecta.");
 						break;						
@@ -642,6 +852,5 @@ public class Main {
 				sc.nextLine();
 			}
 		}while(!salirPrograma);
-		
 	}
 }
